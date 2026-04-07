@@ -69,7 +69,7 @@
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
             transition: all 0.2s ease;
-            z-index: 10;
+            z-index: 50;
         }
 
         .mic-indicator {
@@ -85,24 +85,26 @@
             gap: 8px;
             font-size: 0.9rem;
             backdrop-filter: blur(5px);
-            z-index: 20;
+            z-index: 50;
         }
 
         .mic-dot {
             width: 10px;
             height: 10px;
-            background: #10b981;
+            background: #94a3b8; /* Gris por defecto */
             border-radius: 50%;
+            transition: background 0.3s ease;
         }
 
         .mic-active .mic-dot {
+            background: #10b981; /* Verde cuando está activo */
             animation: pulse 1.5s infinite;
         }
 
         @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { opacity: 0.5; transform: scale(1.2); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-            100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
         @keyframes bump {
@@ -126,7 +128,7 @@
 
     <div id="micStatus" class="mic-indicator">
         <div class="mic-dot"></div>
-        <span id="micText">Toca el botón para activar voz</span>
+        <span id="micText">Toca la pantalla para activar voz</span>
     </div>
 
     <button id="resetBtn" class="reset-button" title="Reiniciar">
@@ -146,9 +148,11 @@
         const micText = document.getElementById('micText');
         const micStatus = document.getElementById('micStatus');
 
+        // Audio Context
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         function playCoinSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = 'square';
@@ -163,6 +167,7 @@
         }
 
         function playLifeSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
             const notes = [392.00, 523.25, 659.25, 783.99, 1046.50, 1318.51];
             notes.forEach((freq, i) => {
                 const osc = audioCtx.createOscillator();
@@ -183,7 +188,6 @@
         }
 
         function handleIncrement() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
             count++;
             counterDisplay.textContent = count;
 
@@ -212,7 +216,7 @@
             triggerVibration(200);
         });
 
-        // RECONOCIMIENTO DE VOZ MEJORADO
+        // RECONOCIMIENTO DE VOZ PROFESIONAL
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         
         if (SpeechRecognition) {
@@ -220,47 +224,55 @@
             recognition.lang = 'es-ES';
             recognition.continuous = true;
             recognition.interimResults = false;
+            
+            let isStarted = false;
 
             recognition.onstart = () => {
+                isStarted = true;
                 micStatus.classList.add('mic-active');
                 micText.textContent = 'Escuchando "uno"...';
             };
 
             recognition.onresult = (event) => {
-                const text = event.results[event.results.length - 1][0].transcript.toLowerCase();
-                console.log("Escuchado:", text);
-                if (text.includes('uno')) {
-                    handleIncrement();
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        const text = event.results[i][0].transcript.toLowerCase();
+                        console.log("Detectado:", text);
+                        // Reconocer "uno", "1", "unos" o "puno" (a veces lo entiende así)
+                        if (text.includes('uno') || text.includes('1') || text.includes('unos')) {
+                            handleIncrement();
+                        }
+                    }
                 }
             };
 
             recognition.onerror = (event) => {
-                console.warn("Error de reconocimiento:", event.error);
+                console.warn("Speech Error:", event.error);
                 if (event.error === 'network') {
-                    micText.textContent = "Error de red (requiere Internet)";
-                } else if (event.error === 'not-allowed') {
-                    micText.textContent = "Micrófono bloqueado";
+                    micText.textContent = "Reconectando voz...";
                 }
+                // Si hay error, forzamos el reinicio en onend
             };
 
             recognition.onend = () => {
-                // Intentar reiniciar si se detiene, a menos que haya un error crítico
+                isStarted = false;
+                micStatus.classList.remove('mic-active');
+                // Auto-reinicio infinito
                 setTimeout(() => {
                     try { recognition.start(); } catch(e) {}
-                }, 1000);
+                }, 300);
             };
 
-            // Activar al primer clic
-            mainBtn.addEventListener('click', () => {
-                if (location.protocol === 'file:') {
-                    micText.textContent = "Usa un servidor (HTTP/HTTPS)";
-                    console.error("La API de voz no funciona con archivos locales file://");
+            // Activar al primer toque
+            document.body.addEventListener('click', () => {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                if (!isStarted) {
+                    try { recognition.start(); } catch(e) {}
                 }
-                try { recognition.start(); } catch(e) {}
-            }, { once: true });
+            }, { once: false });
 
         } else {
-            micText.textContent = "Navegador no compatible";
+            micText.textContent = "Voz no soportada";
         }
 
         window.addEventListener('keydown', (e) => {
