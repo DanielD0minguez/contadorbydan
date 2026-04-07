@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Súper Contador con Voz - Ver 1.2</title>
+    <title>Súper Contador con Voz - Ver 1.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body, html {
@@ -141,21 +141,17 @@
 </head>
 <body>
 
-    <!-- Indicador de Micrófono -->
     <div id="micStatus" class="mic-indicator">
         <div class="mic-dot"></div>
-        <span id="micText">Iniciando voz...</span>
+        <span id="micText">Toca para activar audio y voz</span>
     </div>
 
-    <!-- Etiqueta de Versión -->
-    <div class="version-tag">ver. 1.2</div>
+    <div class="version-tag">ver. 1.3</div>
 
-    <!-- Botón de Reinicio -->
     <button id="resetBtn" class="reset-button" title="Reiniciar">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
     </button>
 
-    <!-- Botón Gigante -->
     <button id="mainBtn" class="main-button">
         <div id="counter" class="count-display">0</div>
         <div class="instruction">TOCA O DI "UNO"</div>
@@ -163,13 +159,14 @@
 
     <script>
         let count = 0;
+        let isVoiceActive = false;
         const counterDisplay = document.getElementById('counter');
         const mainBtn = document.getElementById('mainBtn');
         const resetBtn = document.getElementById('resetBtn');
         const micText = document.getElementById('micText');
         const micStatus = document.getElementById('micStatus');
 
-        // Contexto de Audio
+        // Contexto de Audio (se crea pero no se inicia hasta el click)
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         function playCoinSound() {
@@ -229,68 +226,73 @@
             }
         }
 
+        // Reconocimiento de Voz
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'es-ES';
+            recognition.continuous = true;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                isVoiceActive = true;
+                micStatus.classList.add('mic-active');
+                micText.textContent = 'Escuchando "uno"...';
+            };
+
+            recognition.onresult = (event) => {
+                const text = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                if (text.includes('uno') || text.includes('1') || text.includes('unos')) {
+                    handleIncrement();
+                }
+            };
+
+            recognition.onend = () => {
+                isVoiceActive = false;
+                micStatus.classList.remove('mic-active');
+                // Auto-reinicio
+                if (window.voiceEnabled) {
+                    setTimeout(() => { try { recognition.start(); } catch(e) {} }, 100);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Error Voz:", event.error);
+                if (event.error === 'not-allowed') micText.textContent = "Acceso Mic denegado";
+            };
+        }
+
+        function startEverything() {
+            // 1. Activar Audio
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => console.log("Audio desbloqueado"));
+            }
+
+            // 2. Activar Voz
+            if (recognition && !isVoiceActive) {
+                window.voiceEnabled = true;
+                try {
+                    recognition.start();
+                } catch(e) {
+                    console.log("Reconocimiento ya en marcha o bloqueado");
+                }
+            }
+        }
+
+        // Solo se activa con el primer toque en CUALQUIER PARTE
+        document.addEventListener('click', startEverything, { once: false });
+        document.addEventListener('touchstart', startEverything, { once: false });
+
         mainBtn.addEventListener('click', handleIncrement);
+        
         resetBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             count = 0;
             counterDisplay.textContent = count;
             triggerVibration(200);
         });
-
-        // RECONOCIMIENTO DE VOZ - VER 1.2
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        
-        if (SpeechRecognition) {
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'es-ES';
-            recognition.continuous = true;
-            recognition.interimResults = false;
-            
-            let isRunning = false;
-
-            recognition.onstart = () => {
-                isRunning = true;
-                micStatus.classList.add('mic-active');
-                micText.textContent = 'Escuchando "uno"...';
-            };
-
-            recognition.onresult = (event) => {
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        const text = event.results[i][0].transcript.toLowerCase();
-                        console.log("Audio capturado:", text);
-                        if (text.includes('uno') || text.includes('1') || text.includes('unos')) {
-                            handleIncrement();
-                        }
-                    }
-                }
-            };
-
-            recognition.onend = () => {
-                isRunning = false;
-                micStatus.classList.remove('mic-active');
-                setTimeout(() => {
-                    try { recognition.start(); } catch(e) {}
-                }, 100);
-            };
-
-            const startVoice = () => {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                if (!isRunning) {
-                    try { recognition.start(); } catch(e) {}
-                }
-            };
-
-            // Intentar arrancar al cargar (bloqueado por navegadores hasta interacción)
-            window.addEventListener('load', startVoice);
-            
-            // Se activa al tocar CUALQUIER PARTE de la página
-            document.addEventListener('touchstart', startVoice, { passive: true });
-            document.addEventListener('mousedown', startVoice);
-
-        } else {
-            micText.textContent = "Voz no soportada";
-        }
 
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'Enter') handleIncrement();
