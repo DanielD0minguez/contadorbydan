@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Súper Contador con Voz - Ver 1.6</title>
+    <title>Súper Contador con Voz - Ver 1.8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body, html {
@@ -143,12 +143,12 @@
 </head>
 <body>
 
-    <div id="micStatus" class="mic-indicator" onclick="startEverything()">
+    <div id="micStatus" class="mic-indicator" onclick="forceStart()">
         <div id="micDot" class="mic-dot"></div>
-        <span id="micText">Clic para permitir micrófono</span>
+        <span id="micText">Clic para activar voz</span>
     </div>
 
-    <div class="version-tag">ver. 1.6</div>
+    <div class="version-tag">ver. 1.8</div>
 
     <button id="resetBtn" class="reset-button" title="Reiniciar">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
@@ -161,10 +161,11 @@
 
     <script>
         let count = 0;
-        let isStarted = false; 
         let voiceEnabled = false;
+        let isActuallyRunning = false; 
         let retryCount = 0;
-        const maxRetries = 5;
+        let recognitionDelayTimeout = null;
+        let recognition = null;
 
         const counterDisplay = document.getElementById('counter');
         const mainBtn = document.getElementById('mainBtn');
@@ -233,17 +234,26 @@
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition;
 
-        if (SpeechRecognition) {
+        function initSpeechRecognition() {
+            if (!SpeechRecognition) return;
+            
+            // Si ya existe uno, lo limpiamos
+            if (recognition) {
+                recognition.onstart = null;
+                recognition.onend = null;
+                recognition.onerror = null;
+                recognition.onresult = null;
+            }
+
             recognition = new SpeechRecognition();
             recognition.lang = 'es-ES';
             recognition.continuous = true;
             recognition.interimResults = false;
 
             recognition.onstart = () => {
-                isStarted = true;
-                retryCount = 0; // Reset retries on success
+                isActuallyRunning = true;
+                retryCount = 0;
                 micStatus.classList.add('mic-active');
                 micText.textContent = 'Escuchando "uno"...';
             };
@@ -256,62 +266,58 @@
             };
 
             recognition.onend = () => {
-                isStarted = false;
+                isActuallyRunning = false;
                 micStatus.classList.remove('mic-active');
                 
                 if (voiceEnabled) {
-                    // Exponential backoff for retries
-                    const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-                    setTimeout(() => { 
-                        if (voiceEnabled && !isStarted) {
-                            try { 
-                                recognition.start(); 
-                            } catch(e) {
-                                console.error("Reinicio fallido:", e);
-                            }
+                    const backoff = retryCount > 0 ? Math.min(1500 * Math.pow(1.5, retryCount), 10000) : 800;
+                    
+                    if (recognitionDelayTimeout) clearTimeout(recognitionDelayTimeout);
+                    recognitionDelayTimeout = setTimeout(() => {
+                        // Si hay demasiados errores de red, reinicializamos el objeto por completo
+                        if (retryCount > 3) {
+                            initSpeechRecognition();
                         }
-                    }, delay);
+                        attemptStart();
+                    }, backoff);
                 }
             };
 
             recognition.onerror = (event) => {
-                console.error("Error Voz:", event.error);
+                console.warn("Speech Error:", event.error);
                 if (event.error === 'network') {
                     retryCount++;
-                    micText.textContent = `Error de red (${retryCount}). Reconectando...`;
-                    if (retryCount >= maxRetries) {
-                        micText.textContent = "Error persistente de red. Clic para reintentar.";
-                        voiceEnabled = false;
-                    }
+                    micText.textContent = `Error de red (${retryCount})...`;
                 } else if (event.error === 'not-allowed') {
                     micText.textContent = "Permiso denegado";
                     voiceEnabled = false;
                 } else if (event.error === 'aborted') {
-                    isStarted = false;
+                    isActuallyRunning = false;
                 }
             };
         }
 
-        function startEverything() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-
-            if (recognition) {
-                if (!isStarted) {
-                    voiceEnabled = true;
-                    retryCount = 0;
-                    try {
-                        recognition.start();
-                        micText.textContent = "Iniciando...";
-                    } catch(e) {
-                        console.error("Error al iniciar:", e);
-                    }
-                }
+        function attemptStart() {
+            if (!recognition || isActuallyRunning || !voiceEnabled) return;
+            try {
+                recognition.start();
+            } catch (e) {
+                if (e.name === 'InvalidStateError') isActuallyRunning = true; 
             }
+        }
+
+        function forceStart() {
+            voiceEnabled = true;
+            retryCount = 0;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (!recognition) initSpeechRecognition();
+            attemptStart();
         }
 
         mainBtn.addEventListener('click', () => {
             handleIncrement();
-            startEverything(); 
+            if (!voiceEnabled) forceStart();
+            else attemptStart(); 
         });
 
         resetBtn.addEventListener('click', (e) => {
@@ -324,18 +330,20 @@
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'Enter') {
                 handleIncrement();
-                startEverything();
+                if (!voiceEnabled) forceStart();
             }
         });
 
         const triggerStart = () => {
-            startEverything();
+            if (!voiceEnabled) forceStart();
             document.removeEventListener('click', triggerStart);
             document.removeEventListener('touchstart', triggerStart);
         };
-
         document.addEventListener('click', triggerStart);
         document.addEventListener('touchstart', triggerStart);
+
+        // Inicializar la primera vez
+        initSpeechRecognition();
     </script>
 </body>
 </html>
