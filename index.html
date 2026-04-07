@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Súper Contador con Voz - Ver 1.8</title>
+    <title>Súper Contador Pro - Ver 2.2 (Corrección Crítica)</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/annyang/2.6.1/annyang.min.js"></script>
     <style>
         body, html {
             margin: 0;
@@ -22,328 +23,248 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
             color: white;
             border: none;
             cursor: pointer;
-            transition: transform 0.1s ease, filter 0.2s ease;
+            transition: all 0.2s ease;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
         }
 
         .main-button:active {
-            transform: scale(0.96);
-            filter: brightness(1.2);
+            transform: scale(0.98);
+            filter: brightness(1.1);
         }
 
         .count-display {
-            font-size: clamp(8rem, 25vw, 15rem);
+            font-size: clamp(8rem, 30vw, 18rem);
             font-weight: 900;
-            text-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            line-height: 1;
+            text-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            line-height: 0.8;
+            margin-bottom: 20px;
         }
 
         .instruction {
-            font-size: 1.2rem;
-            font-weight: 600;
-            opacity: 0.9;
-            margin-top: 10px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 50px;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            text-align: center;
-        }
-
-        .reset-button {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 55px;
-            height: 55px;
-            background-color: #ef4444;
-            color: white;
-            border: 4px solid #fff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            transition: all 0.2s ease;
-            z-index: 100;
+            letter-spacing: 1px;
+            backdrop-filter: blur(10px);
         }
 
         .mic-indicator {
             position: fixed;
-            top: 20px;
-            left: 20px;
-            padding: 8px 15px;
-            background: rgba(0,0,0,0.8);
-            border-radius: 20px;
+            top: 25px;
+            left: 25px;
+            padding: 12px 20px;
+            background: rgba(0,0,0,0.6);
+            border-radius: 30px;
             color: #fff;
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
-            backdrop-filter: blur(5px);
+            gap: 12px;
+            font-weight: 600;
+            backdrop-filter: blur(8px);
             z-index: 100;
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
             cursor: pointer;
+        }
+
+        .mic-dot {
+            width: 12px;
+            height: 12px;
+            background: #6b7280;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .active .mic-dot {
+            background: #10b981;
+            box-shadow: 0 0 15px #10b981;
+            animation: pulse 1.5s infinite;
+        }
+
+        .error .mic-dot {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .bump { animation: bumpAnim 0.2s ease-out; }
+        @keyframes bumpAnim {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
         }
 
         .version-tag {
             position: fixed;
-            bottom: 15px;
-            right: 20px;
-            color: rgba(255, 255, 255, 0.7);
-            background: rgba(0,0,0,0.5);
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: bold;
-            pointer-events: none;
-            z-index: 100;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .mic-dot {
-            width: 10px;
-            height: 10px;
-            background: #ef4444; 
-            border-radius: 50%;
-            transition: background 0.3s ease;
-        }
-
-        .mic-active .mic-dot {
-            background: #10b981;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
-
-        @keyframes bump {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.15); }
-            100% { transform: scale(1); }
-        }
-
-        .bump-animation {
-            animation: bump 0.15s ease-out;
-        }
-        
-        .special-animation {
-            animation: bump 0.4s ease-in-out;
-            color: #fff;
-            text-shadow: 0 0 50px #fff;
+            bottom: 20px;
+            right: 25px;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.8rem;
         }
     </style>
 </head>
 <body>
 
-    <div id="micStatus" class="mic-indicator" onclick="forceStart()">
+    <div id="micStatus" class="mic-indicator">
         <div id="micDot" class="mic-dot"></div>
-        <span id="micText">Clic para activar voz</span>
+        <span id="micLabel">Voz desactivada</span>
     </div>
 
-    <div class="version-tag">ver. 1.8</div>
-
-    <button id="resetBtn" class="reset-button" title="Reiniciar">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-    </button>
+    <div class="version-tag">ver. 2.2 (Estable)</div>
 
     <button id="mainBtn" class="main-button">
         <div id="counter" class="count-display">0</div>
-        <div class="instruction">TOCA O DI "UNO"</div>
+        <div class="instruction">Dí "Uno" o Toca</div>
     </button>
 
     <script>
         let count = 0;
-        let voiceEnabled = false;
-        let isActuallyRunning = false; 
-        let retryCount = 0;
-        let recognitionDelayTimeout = null;
-        let recognition = null;
-
-        const counterDisplay = document.getElementById('counter');
-        const mainBtn = document.getElementById('mainBtn');
-        const resetBtn = document.getElementById('resetBtn');
-        const micText = document.getElementById('micText');
+        let isVoiceEnabled = false;
+        let isAttemptingStart = false; // Bloqueo de concurrencia
+        
+        const counterEl = document.getElementById('counter');
         const micStatus = document.getElementById('micStatus');
-        const micDot = document.getElementById('micDot');
+        const micLabel = document.getElementById('micLabel');
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        function playCoinSound() {
+        function beep() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(987.77, audioCtx.currentTime);
-            osc.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.08);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.5);
+            osc.stop(audioCtx.currentTime + 0.1);
         }
 
-        function playLifeSound() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const notes = [392.00, 523.25, 659.25, 783.99, 1046.50, 1318.51];
-            notes.forEach((freq, i) => {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.07));
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime + (i * 0.07));
-                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (i * 0.07) + 0.2);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(audioCtx.currentTime + (i * 0.07));
-                osc.stop(audioCtx.currentTime + (i * 0.07) + 0.2);
+        function increment() {
+            count++;
+            counterEl.textContent = count;
+            counterEl.classList.remove('bump');
+            void counterEl.offsetWidth;
+            counterEl.classList.add('bump');
+            beep();
+            if (navigator.vibrate) navigator.vibrate(40);
+        }
+
+        if (annyang) {
+            const commands = {
+                'uno': increment,
+                '1': increment,
+                'incrementar': increment,
+                'mas': increment
+            };
+
+            annyang.addCommands(commands);
+            annyang.setLanguage('es-ES');
+
+            annyang.addCallback('start', () => {
+                isAttemptingStart = false;
+                micStatus.classList.add('active');
+                micStatus.classList.remove('error');
+                micLabel.textContent = 'Voz conectada';
+            });
+
+            annyang.addCallback('error', (err) => {
+                console.warn('Estado de voz:', err.error);
+                if (err.error === 'network') {
+                    micLabel.textContent = 'Error de red...';
+                    micStatus.classList.add('error');
+                }
+                isAttemptingStart = false;
+            });
+
+            annyang.addCallback('end', () => {
+                isAttemptingStart = false;
+                micStatus.classList.remove('active');
+                
+                // Reinicio automático controlado
+                if (isVoiceEnabled) {
+                    setTimeout(() => {
+                        if (isVoiceEnabled) {
+                            safeStart();
+                        }
+                    }, 600);
+                }
             });
         }
 
-        function triggerVibration(pattern) {
-            if (navigator.vibrate) navigator.vibrate(pattern);
-        }
-
-        function handleIncrement() {
-            count++;
-            counterDisplay.textContent = count;
-
-            if (count % 10 === 0) {
-                playLifeSound();
-                triggerVibration([100, 50, 100, 50, 200]);
-                counterDisplay.classList.remove('special-animation');
-                void counterDisplay.offsetWidth;
-                counterDisplay.classList.add('special-animation');
-                mainBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                setTimeout(() => mainBtn.style.background = 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)', 500);
-            } else {
-                playCoinSound();
-                triggerVibration(50);
-                counterDisplay.classList.remove('bump-animation');
-                void counterDisplay.offsetWidth;
-                counterDisplay.classList.add('bump-animation');
-            }
-        }
-
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-        function initSpeechRecognition() {
-            if (!SpeechRecognition) return;
+        function safeStart() {
+            if (!annyang || isAttemptingStart) return;
             
-            // Si ya existe uno, lo limpiamos
-            if (recognition) {
-                recognition.onstart = null;
-                recognition.onend = null;
-                recognition.onerror = null;
-                recognition.onresult = null;
+            // Verificación adicional de estado nativo para evitar colisión
+            if (annyang.isListening()) {
+                console.log("Ya está escuchando, omitiendo inicio.");
+                return;
             }
 
-            recognition = new SpeechRecognition();
-            recognition.lang = 'es-ES';
-            recognition.continuous = true;
-            recognition.interimResults = false;
-
-            recognition.onstart = () => {
-                isActuallyRunning = true;
-                retryCount = 0;
-                micStatus.classList.add('mic-active');
-                micText.textContent = 'Escuchando "uno"...';
-            };
-
-            recognition.onresult = (event) => {
-                const text = event.results[event.results.length - 1][0].transcript.toLowerCase();
-                if (text.includes('uno') || text.includes('1') || text.includes('unos')) {
-                    handleIncrement();
-                }
-            };
-
-            recognition.onend = () => {
-                isActuallyRunning = false;
-                micStatus.classList.remove('mic-active');
-                
-                if (voiceEnabled) {
-                    const backoff = retryCount > 0 ? Math.min(1500 * Math.pow(1.5, retryCount), 10000) : 800;
-                    
-                    if (recognitionDelayTimeout) clearTimeout(recognitionDelayTimeout);
-                    recognitionDelayTimeout = setTimeout(() => {
-                        // Si hay demasiados errores de red, reinicializamos el objeto por completo
-                        if (retryCount > 3) {
-                            initSpeechRecognition();
-                        }
-                        attemptStart();
-                    }, backoff);
-                }
-            };
-
-            recognition.onerror = (event) => {
-                console.warn("Speech Error:", event.error);
-                if (event.error === 'network') {
-                    retryCount++;
-                    micText.textContent = `Error de red (${retryCount})...`;
-                } else if (event.error === 'not-allowed') {
-                    micText.textContent = "Permiso denegado";
-                    voiceEnabled = false;
-                } else if (event.error === 'aborted') {
-                    isActuallyRunning = false;
-                }
-            };
-        }
-
-        function attemptStart() {
-            if (!recognition || isActuallyRunning || !voiceEnabled) return;
+            isAttemptingStart = true;
             try {
-                recognition.start();
+                // Forzamos abortar cualquier proceso fantasma antes de iniciar
+                // annyang.start internamente ya gestiona esto, pero añadimos protección
+                annyang.start({ autoRestart: false, continuous: false });
             } catch (e) {
-                if (e.name === 'InvalidStateError') isActuallyRunning = true; 
+                console.error("Fallo controlado al iniciar:", e);
+                isAttemptingStart = false;
             }
         }
 
-        function forceStart() {
-            voiceEnabled = true;
-            retryCount = 0;
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            if (!recognition) initSpeechRecognition();
-            attemptStart();
+        function toggleVoice() {
+            if (!annyang) return;
+
+            isVoiceEnabled = !isVoiceEnabled;
+
+            if (isVoiceEnabled) {
+                safeStart();
+            } else {
+                isAttemptingStart = false;
+                try {
+                    annyang.abort();
+                } catch(e) {}
+                micStatus.classList.remove('active', 'error');
+                micLabel.textContent = 'Voz desactivada';
+            }
         }
 
-        mainBtn.addEventListener('click', () => {
-            handleIncrement();
-            if (!voiceEnabled) forceStart();
-            else attemptStart(); 
+        document.getElementById('mainBtn').addEventListener('click', () => {
+            increment();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            // Si el usuario toca la pantalla, intentamos reanimar la voz si falló, 
+            // pero con comprobación estricta de estado.
+            if (!isVoiceEnabled) {
+                toggleVoice();
+            } else if (!annyang.isListening()) {
+                safeStart();
+            }
         });
 
-        resetBtn.addEventListener('click', (e) => {
+        micStatus.addEventListener('click', (e) => {
             e.stopPropagation();
-            count = 0;
-            counterDisplay.textContent = count;
-            triggerVibration(200);
+            toggleVoice();
         });
 
         window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' || e.code === 'Enter') {
-                handleIncrement();
-                if (!voiceEnabled) forceStart();
+            if (e.code === 'Space') {
+                e.preventDefault();
+                increment();
             }
         });
-
-        const triggerStart = () => {
-            if (!voiceEnabled) forceStart();
-            document.removeEventListener('click', triggerStart);
-            document.removeEventListener('touchstart', triggerStart);
-        };
-        document.addEventListener('click', triggerStart);
-        document.addEventListener('touchstart', triggerStart);
-
-        // Inicializar la primera vez
-        initSpeechRecognition();
     </script>
 </body>
 </html>
