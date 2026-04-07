@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Súper Contador con Voz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #000;
+        }
+
+        .main-button {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s ease, filter 0.2s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .main-button:active {
+            transform: scale(0.96);
+            filter: brightness(1.2);
+        }
+
+        .count-display {
+            font-size: clamp(8rem, 25vw, 15rem);
+            font-weight: 900;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            line-height: 1;
+        }
+
+        .instruction {
+            font-size: 1.2rem;
+            font-weight: 600;
+            opacity: 0.9;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        .reset-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 55px;
+            height: 55px;
+            background-color: #ef4444;
+            color: white;
+            border: 4px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .mic-indicator {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 8px 15px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 20px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(5px);
+            z-index: 20;
+        }
+
+        .mic-dot {
+            width: 10px;
+            height: 10px;
+            background: #10b981;
+            border-radius: 50%;
+        }
+
+        .mic-active .mic-dot {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { opacity: 0.5; transform: scale(1.2); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        @keyframes bump {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        .bump-animation {
+            animation: bump 0.15s ease-out;
+        }
+        
+        .special-animation {
+            animation: bump 0.4s ease-in-out;
+            color: #fff;
+            text-shadow: 0 0 50px #fff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="micStatus" class="mic-indicator">
+        <div class="mic-dot"></div>
+        <span id="micText">Toca el botón para activar voz</span>
+    </div>
+
+    <button id="resetBtn" class="reset-button" title="Reiniciar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+    </button>
+
+    <button id="mainBtn" class="main-button">
+        <div id="counter" class="count-display">0</div>
+        <div class="instruction">TOCA O DI "UNO"</div>
+    </button>
+
+    <script>
+        let count = 0;
+        const counterDisplay = document.getElementById('counter');
+        const mainBtn = document.getElementById('mainBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const micText = document.getElementById('micText');
+        const micStatus = document.getElementById('micStatus');
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playCoinSound() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(987.77, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function playLifeSound() {
+            const notes = [392.00, 523.25, 659.25, 783.99, 1046.50, 1318.51];
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.07));
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime + (i * 0.07));
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (i * 0.07) + 0.2);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(audioCtx.currentTime + (i * 0.07));
+                osc.stop(audioCtx.currentTime + (i * 0.07) + 0.2);
+            });
+        }
+
+        function triggerVibration(pattern) {
+            if (navigator.vibrate) navigator.vibrate(pattern);
+        }
+
+        function handleIncrement() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            count++;
+            counterDisplay.textContent = count;
+
+            if (count % 10 === 0) {
+                playLifeSound();
+                triggerVibration([100, 50, 100, 50, 200]);
+                counterDisplay.classList.remove('special-animation');
+                void counterDisplay.offsetWidth;
+                counterDisplay.classList.add('special-animation');
+                mainBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                setTimeout(() => mainBtn.style.background = 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)', 500);
+            } else {
+                playCoinSound();
+                triggerVibration(50);
+                counterDisplay.classList.remove('bump-animation');
+                void counterDisplay.offsetWidth;
+                counterDisplay.classList.add('bump-animation');
+            }
+        }
+
+        mainBtn.addEventListener('click', handleIncrement);
+        resetBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            count = 0;
+            counterDisplay.textContent = count;
+            triggerVibration(200);
+        });
+
+        // RECONOCIMIENTO DE VOZ MEJORADO
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'es-ES';
+            recognition.continuous = true;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                micStatus.classList.add('mic-active');
+                micText.textContent = 'Escuchando "uno"...';
+            };
+
+            recognition.onresult = (event) => {
+                const text = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                console.log("Escuchado:", text);
+                if (text.includes('uno')) {
+                    handleIncrement();
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.warn("Error de reconocimiento:", event.error);
+                if (event.error === 'network') {
+                    micText.textContent = "Error de red (requiere Internet)";
+                } else if (event.error === 'not-allowed') {
+                    micText.textContent = "Micrófono bloqueado";
+                }
+            };
+
+            recognition.onend = () => {
+                // Intentar reiniciar si se detiene, a menos que haya un error crítico
+                setTimeout(() => {
+                    try { recognition.start(); } catch(e) {}
+                }, 1000);
+            };
+
+            // Activar al primer clic
+            mainBtn.addEventListener('click', () => {
+                if (location.protocol === 'file:') {
+                    micText.textContent = "Usa un servidor (HTTP/HTTPS)";
+                    console.error("La API de voz no funciona con archivos locales file://");
+                }
+                try { recognition.start(); } catch(e) {}
+            }, { once: true });
+
+        } else {
+            micText.textContent = "Navegador no compatible";
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'Enter') handleIncrement();
+        });
+    </script>
+</body>
+</html>
