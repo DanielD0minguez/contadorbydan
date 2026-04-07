@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Súper Contador con Voz - Ver 1.1</title>
+    <title>Súper Contador con Voz - Ver 1.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body, html {
@@ -69,7 +69,7 @@
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
             transition: all 0.2s ease;
-            z-index: 50;
+            z-index: 100;
         }
 
         .mic-indicator {
@@ -77,7 +77,7 @@
             top: 20px;
             left: 20px;
             padding: 8px 15px;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.8);
             border-radius: 20px;
             color: #fff;
             display: flex;
@@ -85,17 +85,22 @@
             gap: 8px;
             font-size: 0.9rem;
             backdrop-filter: blur(5px);
-            z-index: 50;
+            z-index: 100;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
         .version-tag {
             position: fixed;
-            bottom: 10px;
-            right: 15px;
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 0.75rem;
+            bottom: 15px;
+            right: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            background: rgba(0,0,0,0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
             pointer-events: none;
-            z-index: 50;
+            z-index: 100;
         }
 
         .mic-dot {
@@ -136,17 +141,21 @@
 </head>
 <body>
 
+    <!-- Indicador de Micrófono -->
     <div id="micStatus" class="mic-indicator">
         <div class="mic-dot"></div>
-        <span id="micText">Esperando voz...</span>
+        <span id="micText">Iniciando voz...</span>
     </div>
 
-    <div class="version-tag">ver. 1.1</div>
+    <!-- Etiqueta de Versión -->
+    <div class="version-tag">ver. 1.2</div>
 
+    <!-- Botón de Reinicio -->
     <button id="resetBtn" class="reset-button" title="Reiniciar">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
     </button>
 
+    <!-- Botón Gigante -->
     <button id="mainBtn" class="main-button">
         <div id="counter" class="count-display">0</div>
         <div class="instruction">TOCA O DI "UNO"</div>
@@ -160,7 +169,7 @@
         const micText = document.getElementById('micText');
         const micStatus = document.getElementById('micStatus');
 
-        // Audio Context
+        // Contexto de Audio
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         function playCoinSound() {
@@ -228,7 +237,7 @@
             triggerVibration(200);
         });
 
-        // RECONOCIMIENTO DE VOZ - VER 1.1
+        // RECONOCIMIENTO DE VOZ - VER 1.2
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         
         if (SpeechRecognition) {
@@ -249,7 +258,7 @@
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
                         const text = event.results[i][0].transcript.toLowerCase();
-                        console.log("Detectado:", text);
+                        console.log("Audio capturado:", text);
                         if (text.includes('uno') || text.includes('1') || text.includes('unos')) {
                             handleIncrement();
                         }
@@ -257,42 +266,27 @@
                 }
             };
 
-            recognition.onerror = (event) => {
-                console.warn("Speech Error:", event.error);
-                if (event.error === 'network') {
-                    micText.textContent = "Reconectando voz...";
-                }
-            };
-
             recognition.onend = () => {
                 isRunning = false;
                 micStatus.classList.remove('mic-active');
-                // Auto-reinicio inmediato
                 setTimeout(() => {
                     try { recognition.start(); } catch(e) {}
                 }, 100);
             };
 
-            // Intentar activar la voz automáticamente al cargar
             const startVoice = () => {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
                 if (!isRunning) {
                     try { recognition.start(); } catch(e) {}
                 }
             };
 
-            // Se intenta arrancar al cargar, aunque el navegador suele bloquearlo hasta el primer toque
+            // Intentar arrancar al cargar (bloqueado por navegadores hasta interacción)
             window.addEventListener('load', startVoice);
             
-            // Si el auto-arranque falla, cualquier interacción con el documento lo activará
-            document.addEventListener('touchstart', () => {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                startVoice();
-            }, { passive: true });
-            
-            document.addEventListener('mousedown', () => {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                startVoice();
-            });
+            // Se activa al tocar CUALQUIER PARTE de la página
+            document.addEventListener('touchstart', startVoice, { passive: true });
+            document.addEventListener('mousedown', startVoice);
 
         } else {
             micText.textContent = "Voz no soportada";
