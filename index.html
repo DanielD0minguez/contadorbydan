@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Súper Contador con Voz</title>
+    <title>Súper Contador con Voz - Ver 1.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body, html {
@@ -88,16 +88,26 @@
             z-index: 50;
         }
 
+        .version-tag {
+            position: fixed;
+            bottom: 10px;
+            right: 15px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.75rem;
+            pointer-events: none;
+            z-index: 50;
+        }
+
         .mic-dot {
             width: 10px;
             height: 10px;
-            background: #94a3b8; /* Gris por defecto */
+            background: #94a3b8; 
             border-radius: 50%;
             transition: background 0.3s ease;
         }
 
         .mic-active .mic-dot {
-            background: #10b981; /* Verde cuando está activo */
+            background: #10b981;
             animation: pulse 1.5s infinite;
         }
 
@@ -128,8 +138,10 @@
 
     <div id="micStatus" class="mic-indicator">
         <div class="mic-dot"></div>
-        <span id="micText">Toca la pantalla para activar voz</span>
+        <span id="micText">Esperando voz...</span>
     </div>
+
+    <div class="version-tag">ver. 1.1</div>
 
     <button id="resetBtn" class="reset-button" title="Reiniciar">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
@@ -216,7 +228,7 @@
             triggerVibration(200);
         });
 
-        // RECONOCIMIENTO DE VOZ PROFESIONAL
+        // RECONOCIMIENTO DE VOZ - VER 1.1
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         
         if (SpeechRecognition) {
@@ -225,10 +237,10 @@
             recognition.continuous = true;
             recognition.interimResults = false;
             
-            let isStarted = false;
+            let isRunning = false;
 
             recognition.onstart = () => {
-                isStarted = true;
+                isRunning = true;
                 micStatus.classList.add('mic-active');
                 micText.textContent = 'Escuchando "uno"...';
             };
@@ -238,7 +250,6 @@
                     if (event.results[i].isFinal) {
                         const text = event.results[i][0].transcript.toLowerCase();
                         console.log("Detectado:", text);
-                        // Reconocer "uno", "1", "unos" o "puno" (a veces lo entiende así)
                         if (text.includes('uno') || text.includes('1') || text.includes('unos')) {
                             handleIncrement();
                         }
@@ -251,25 +262,37 @@
                 if (event.error === 'network') {
                     micText.textContent = "Reconectando voz...";
                 }
-                // Si hay error, forzamos el reinicio en onend
             };
 
             recognition.onend = () => {
-                isStarted = false;
+                isRunning = false;
                 micStatus.classList.remove('mic-active');
-                // Auto-reinicio infinito
+                // Auto-reinicio inmediato
                 setTimeout(() => {
                     try { recognition.start(); } catch(e) {}
-                }, 300);
+                }, 100);
             };
 
-            // Activar al primer toque
-            document.body.addEventListener('click', () => {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                if (!isStarted) {
+            // Intentar activar la voz automáticamente al cargar
+            const startVoice = () => {
+                if (!isRunning) {
                     try { recognition.start(); } catch(e) {}
                 }
-            }, { once: false });
+            };
+
+            // Se intenta arrancar al cargar, aunque el navegador suele bloquearlo hasta el primer toque
+            window.addEventListener('load', startVoice);
+            
+            // Si el auto-arranque falla, cualquier interacción con el documento lo activará
+            document.addEventListener('touchstart', () => {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                startVoice();
+            }, { passive: true });
+            
+            document.addEventListener('mousedown', () => {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                startVoice();
+            });
 
         } else {
             micText.textContent = "Voz no soportada";
